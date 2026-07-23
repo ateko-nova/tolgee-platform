@@ -1,0 +1,66 @@
+name: Deploy Tolgee (ACA)
+
+# Builds this fork into the private ACR and rolls the ca-tolgee container app.
+#
+# MUST run on the in-VNet self-hosted runner fleet (repo variable
+# CI_RUNS_ON=ekonet-runners): the ACR and Container App are private. The
+# `az acr build` runs server-side on the in-VNet ACR agent pool, using the
+# self-contained root Dockerfile.
+#
+# Required repo config (Settings → Secrets and variables → Actions):
+#   Secrets:   AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID  (deploy SP, OIDC)
+#   Variables: CI_RUNS_ON=ekonet-runners
+#              ACR_NAME=crekonetdevcc
+#              RESOURCE_GROUP_APP=rg-ekonet-cc-dev-app
+#              TOLGEE_APP_NAME=ca-tolgee
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "webapp/**"
+      - "ee/**"
+      - "build.gradle"
+      - "settings.gradle"
+      - "gradle/**"
+      - "docker/app/**"
+      - "Dockerfile"
+      - ".github/workflows/deploy-aca.yml"
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-tolgee
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ${{ vars.CI_RUNS_ON || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build image (server-side on the in-VNet ACR agent pool)
+        run: |
+          az acr build \
+            --registry ${{ vars.ACR_NAME }} \
+            --agent-pool ekonetbuilds \
+            --image tolgee:${{ github.sha }} \
+            --image tolgee:latest \
+            .
+
+      - name: Roll the container app to the new image
+        run: |
+          az containerapp update \
+            --name ${{ vars.TOLGEE_APP_NAME || 'ca-tolgee' }} \
+            --resource-group ${{ vars.RESOURCE_GROUP_APP }} \
+            --image ${{ vars.ACR_NAME }}.azurecr.io/tolgee:${{ github.sha }}
