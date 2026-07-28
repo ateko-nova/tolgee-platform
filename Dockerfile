@@ -22,13 +22,24 @@
 # ---------------------------------------------------------------------------
 FROM eclipse-temurin:21-jdk AS build
 
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates git \
     && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
 COPY . .
+
+# `az acr build` excludes .git from the uploaded source by default. Two
+# things in the webapp's install chain need a real git repo:
+#   - husky/bin.mjs (package.json's init-husky script) errors without one —
+#     HUSKY=0 is Husky's own documented env var to skip it cleanly.
+#   - webapp/scripts/updateBranchInfo.mjs runs `git rev-parse --abbrev-ref
+#     HEAD` directly, with no fallback — give it a minimal repo to satisfy
+#     that (the branch name it records is purely informational).
+ENV HUSKY=0
+RUN git init -q \
+    && git -c user.email=build@ekonet.local -c user.name=build commit -q --allow-empty -m "docker build"
 
 # bootJar builds backend + webapp; dockerPrepare assembles build/docker with
 # BOOT-INF/{lib,classes}, META-INF, cmd.sh and the .VERSION file.
