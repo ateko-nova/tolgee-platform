@@ -78,7 +78,8 @@ ENV HEALTHCHECK_PORT=8080 \
 COPY --from=build /src/build/docker/BOOT-INF/lib /app/lib
 COPY --from=build /src/build/docker/META-INF /app/META-INF
 COPY --from=build /src/build/docker/BOOT-INF/classes /app
-COPY --from=build --chmod=755 /src/build/docker/cmd.sh /app/cmd.sh
+COPY --from=build /src/build/docker/cmd.sh /app/cmd.sh
+RUN chmod 755 /app/cmd.sh
 
 ENTRYPOINT ["/app/cmd.sh"]
 
