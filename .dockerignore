@@ -1,0 +1,9 @@
+# Keep the build context lean and cache-stable without dropping anything the
+# Gradle build needs. Gradle regenerates build/ and the webapp node_modules
+# inside the build stage; .git is kept (build/version info may read it).
+**/build
+**/node_modules
+**/.gradle
+.idea
+Tolgee-*.gif
+tolgee*.gif
