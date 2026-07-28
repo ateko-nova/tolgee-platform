@@ -35,7 +35,15 @@ COPY . .
 # (No --mount=type=cache here — ACR Tasks' quick-build engine doesn't run with
 # BuildKit, which that flag requires. Costs Gradle-cache reuse between builds,
 # not correctness.)
-RUN ./gradlew --no-daemon bootJar dockerPrepare
+#
+# gradle.properties requests -Xmx6g for BOTH the Gradle daemon and the
+# separate Kotlin compiler daemon (kotlin.daemon.jvm.options) — up to 12 GiB
+# combined, tuned for a bigger CI host than our build agent. Override both
+# down to fit our agent pool (S2 = 8 GiB) with headroom, rather than editing
+# the project's own upstream build tuning.
+RUN ./gradlew --no-daemon bootJar dockerPrepare \
+    -Dorg.gradle.jvmargs="-Xmx3g" \
+    -Dkotlin.daemon.jvm.options="-Xmx3g"
 
 # ---------------------------------------------------------------------------
 # Stage 2 — runtime image. Kept identical to docker/app/Dockerfile: a JDK on
