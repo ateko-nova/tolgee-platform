@@ -25,8 +25,10 @@ COPY . .
 
 # bootJar builds backend + webapp; dockerPrepare assembles build/docker with
 # BOOT-INF/{lib,classes}, META-INF, cmd.sh and the .VERSION file.
-RUN --mount=type=cache,target=/root/.gradle \
-    ./gradlew --no-daemon bootJar dockerPrepare
+# (No --mount=type=cache here — ACR Tasks' quick-build engine doesn't run with
+# BuildKit, which that flag requires. Costs Gradle-cache reuse between builds,
+# not correctness.)
+RUN ./gradlew --no-daemon bootJar dockerPrepare
 
 # ---------------------------------------------------------------------------
 # Stage 2 — runtime image. Kept identical to docker/app/Dockerfile: a JDK on
