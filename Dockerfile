@@ -15,10 +15,17 @@
 
 # ---------------------------------------------------------------------------
 # Stage 1 — build the Spring Boot jar and stage the docker context.
-# Gradle's node plugin downloads its own Node to build the webapp, so only a
-# JDK is required here.
+# gradle/webapp.gradle's installWebappDeps/buildWebapp tasks shell out to a
+# system `npm` directly (no Gradle-managed Node download), so Node must be
+# installed here. Version matches the project's own CI (actions/setup-node
+# node-version: "22.x" in .github/workflows).
 # ---------------------------------------------------------------------------
 FROM eclipse-temurin:21-jdk AS build
+
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
 COPY . .
